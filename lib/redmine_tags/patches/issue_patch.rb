@@ -1,5 +1,5 @@
 # This file is a part of redmine_tags
-# redMine plugin, that adds tagging support.
+# Redmine plugin, that adds tagging support.
 #
 # Copyright (c) 2010 Aleksey V Zapparov AKA ixti
 #
@@ -32,8 +32,8 @@ module RedmineTags
           searchable_options[:include] << :tags
 
           scope :on_project, lambda { |project|
-            project = project.id if project.is_a? Project
-            { :conditions => ["#{Project.table_name}.id=?", project] }
+            project = Project.find(project) unless project.is_a? Project
+            { :conditions => "#{project.project_condition(Setting.display_subprojects_issues?)}" }
           }
 
 #          with this changes do not saved in journal
@@ -68,11 +68,25 @@ module RedmineTags
 
           # limit to the tags matching given %name_like%
           if options[:name_like]
-            conditions[0] << "AND #{ActsAsTaggableOn::Tag.table_name}.name LIKE ?"
+            conditions[0] << case self.connection.adapter_name
+            when 'PostgreSQL'
+              "AND #{ActsAsTaggableOn::Tag.table_name}.name ILIKE ?"
+            else
+              "AND #{ActsAsTaggableOn::Tag.table_name}.name LIKE ?"
+            end
             conditions << "%#{options[:name_like].downcase}%"
           end
 
-          self.all_tag_counts(:conditions => conditions)
+          self.all_tag_counts(:conditions => conditions, :order => "#{ActsAsTaggableOn::Tag.table_name}.name ASC")
+        end
+
+        def remove_unused_tags!
+          unused = ActsAsTaggableOn::Tag.find_by_sql(<<-SQL)
+            SELECT * FROM tags WHERE id NOT IN (
+              SELECT DISTINCT tag_id FROM taggings
+            )
+          SQL
+          unused.each(&:destroy)
         end
       end
     end

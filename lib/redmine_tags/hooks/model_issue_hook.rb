@@ -1,5 +1,5 @@
 # This file is a part of redmine_tags
-# redMine plugin, that adds tagging support.
+# Redmine plugin, that adds tagging support.
 #
 # Copyright (c) 2010 Eric Davis
 # Copyright (c) 2010 Aleksey V Zapparov AKA ixti
@@ -54,6 +54,8 @@ module RedmineTags
                                                                          :old_value => old_tags,
                                                                          :value => new_tags)
           end
+
+          Issue.remove_unused_tags!
         end
       end
     end
